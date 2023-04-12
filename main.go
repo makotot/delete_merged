@@ -8,6 +8,25 @@ import (
 	"strings"
 )
 
+func getBaseBranch() string {
+	baseBranch := "main"
+
+	if len(os.Args) > 1 {
+		baseBranch = os.Args[1]
+	}
+
+	return baseBranch
+}
+
+func getCurrentBranch() string {
+	cmd := exec.Command("git", "branch", "--show-current")
+	output, err := cmd.Output()
+	if err != nil {
+			fmt.Println(err)
+	}
+	return strings.TrimSpace(string(output))
+}
+
 func main() {
 	currentDir, err := os.Getwd()
 
@@ -23,24 +42,21 @@ func main() {
 		log.Fatal("git command not found")
 	}
 
-	baseBranch := "main"
-
-	if len(os.Args) > 1 {
-		baseBranch = os.Args[1]
-	}
-
 	grepPath, err := exec.LookPath("grep")
 
 	if err != nil {
 		log.Fatal("grep command not found")
 	}
 
+	currentBranch := getCurrentBranch()
+	baseBranch := getBaseBranch()
+
 	c1 := exec.Command(gitPath, "--git-dir="+repoPath+"/.git", "--work-tree="+repoPath, "branch", "--merged", baseBranch)
-	c2 := exec.Command(grepPath, "-v", baseBranch)
+	c2 := exec.Command(grepPath, "-v", "-e", baseBranch, "-e", currentBranch)
 	c1out, err := c1.StdoutPipe()
 
 	if err != nil {
-		log.Fatal("Error creating StdoutPipe for cmd1:", err)
+		log.Fatal("Error creating StdoutPipe for c1:", err)
 	}
 
 	defer c1out.Close()
@@ -58,7 +74,7 @@ func main() {
 	// log.Println(branchesToDelete)
 
 	for _, branch := range branchesToDelete {
-		cmd := exec.Command(gitPath, "--git-dir="+repoPath+"/.git", "--work-tree="+repoPath, "branch", "-d", branch)
+		cmd := exec.Command(gitPath, "--git-dir="+repoPath+"/.git", "--work-tree="+repoPath, "branch", "-d", strings.TrimSpace(branch))
 		err := cmd.Run()
 
 		if err != nil {
